@@ -1,0 +1,18 @@
+[
+    {
+        "image": "sql-importers",
+        "title": "Wide World Importers",
+        "name": "WideWorldImporters",
+        "backup": "importers.bak",
+        "sourceUrl": "https://github.com/Microsoft/sql-server-samples/releases/download/wide-world-importers-v1.0/WideWorldImporters-Full.bak",
+        "portMapping": 1443
+    },
+    {
+        "image": "sql-adv-wrks",
+        "title": "Adventure Works",
+        "name": "AdventureWorks",
+        "backup": "adv-wrks.bak",
+        "sourceUrl": "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2017.bak",
+        "portMapping": 1453
+    }
+]
