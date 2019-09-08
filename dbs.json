@@ -14,5 +14,14 @@
         "backup": "adv-wrks.bak",
         "sourceUrl": "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2017.bak",
         "portMapping": 1453
+    },
+    {
+        "image": "sql-samples",
+        "title": "All Sample dBs",
+        "portMapping": 1433,
+        "include": [
+            "AdventureWorks",
+            "WideWorldImporters"
+        ]
     }
 ]

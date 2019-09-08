@@ -4,7 +4,7 @@ $selected = select-database
 
 [string] $image = $selected.image
 
-remove-existing-container $selected.image
+remove-existing-container $image
 
 [int]    $port  = get-port-mapping $selected.portMapping
 [string] $title = $selected.title
@@ -15,12 +15,28 @@ Write-Host "`nbuilding sql server $image docker image mapped to port: $port for 
 
 add-sql-container $image $password $port
 
-restore-db $image `
-           $password `
-           $title `
-           $selected.name `
-           $selected.backup `
-           $selected.sourceUrl
+if ($null -eq $selected.dbs)
+{
+    restore-db $image `
+               $password `
+               $title `
+               $selected.name `
+               $selected.backup `
+               $selected.sourceUrl
+} else {
+
+    $selected.dbs | ForEach-Object {
+
+        [object] $db = $_
+
+        restore-db $image `
+                   $password `
+                   $title `
+                   $db.name `
+                   $db.backup `
+                   $db.sourceUrl
+    }
+}
 
 docker container stop $image *> $null
 

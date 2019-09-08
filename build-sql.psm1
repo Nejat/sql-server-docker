@@ -49,6 +49,28 @@ function convert-value {
     } 
 }
 
+
+function add-properties {
+
+    param (
+          [psobject]  $source
+        , [hashtable] $newProperties
+    )
+    
+    [hashtable] $combined = @{}
+
+    $source.psobject.properties | ForEach-Object {
+
+        $combined[$_.Name] = $_.Value
+    }
+
+    $newProperties.Keys | ForEach-Object {
+        $combined[$_] = $newProperties[$_]
+    }
+
+    New-Object -TypeName psobject -Property $combined
+}
+
 function get-port-mapping {
 
     param (
@@ -98,6 +120,11 @@ function read-json {
 
 function select-database {
 
+    param (
+        [string] $verb      = "Build"
+      , [bool]   $allOption = $false
+    )
+
     [object[]] $dbs = read-json ".\dbs.json"
 
     do {
@@ -112,10 +139,16 @@ function select-database {
 
             $title = $_.title
 
-            Write-Host "$choices $title Image"
+            Write-Host "$choices $verb $title Image"
         }
 
-        Write-Host "`nQ: Press 'Q' to quit.`n" -ForegroundColor DarkGray
+        if ($allOption) {
+            Write-Host "`nA: Press 'A' select all." -ForegroundColor DarkGray
+        } else {
+            Write-Host ""
+        }
+
+        Write-Host "Q: Press 'Q' to quit.`n" -ForegroundColor DarkGray
 
         $command = Read-Host "Choose a command"
 
@@ -124,9 +157,29 @@ function select-database {
         if ($command -eq "q") {
             exit
         }
+
+        if ($allOption -and $command -eq 'a') {
+            return $dbs
+        }
     } while ($command -lt 1 -or $command -gt $choices)
 
-    $dbs[$command - 1]
+    [object] $selected = $dbs[$command - 1]
+
+    if ($null -ne $selected.include) {
+
+        [object[]] $includedDbs = $dbs | ForEach-Object {
+
+            [object] $db = $_
+
+            if ($null -ne $db.name -and $selected.include.Contains($db.name)) {
+                $db | Select-Object "name", "backup", "sourceUrl"
+            }
+        }
+
+        $selected = add-properties $selected @{ dbs = $includedDbs }
+    }
+
+    $selected
 }
 
 function get-backup {
@@ -350,8 +403,8 @@ function remove-existing-container {
 
     if ($confirm -ne "y") {
         Write-Host ""
-    
-        exit
+
+        return
     }
 
     docker container stop $image *> $null
