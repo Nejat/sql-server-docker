@@ -6,8 +6,8 @@ if ($selected -is [array]) {
 
     $selected | ForEach-Object {
 
-        remove-existing-container $_.image
+        $null = remove-existing-container $_.container
     }
 } else {
-    remove-existing-container $selected.image
+    $null = remove-existing-container $selected.container
 }

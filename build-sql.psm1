@@ -137,7 +137,7 @@ function select-database {
 
             $choices++
 
-            $title = $_.title
+            [string] $title = $_.title
 
             Write-Host "$choices $verb $title Image"
         }
@@ -202,38 +202,37 @@ function get-backup {
 function copy-backup {
 
     param (
-          [string] $image
+          [string] $container
         , [string] $title
         , [string] $backupFile
     )
     
     Write-Host "copy $title backup $backupFile to " -NoNewline
-    Write-Host "image" -NoNewline -ForegroundColor Magenta
+    Write-Host "container" -NoNewline -ForegroundColor Magenta
     Write-Host " '" -NoNewline
-    Write-Host "$image" -NoNewline -ForegroundColor DarkYellow
+    Write-Host "$container" -NoNewline -ForegroundColor DarkYellow
     Write-Host "' ...`n"
     
-    docker cp $backupFile ${image}:/var/opt/mssql/backup
+    docker cp $backupFile ${container}:/var/opt/mssql/backup
 }
 
 function read-filelist {
 
     param 
     (
-          [string] $image
+          [string] $container
         , [string] $pswd
         , [string] $backupFile
     )
 
-    [string[]] $list = docker exec -it $image /opt/mssql-tools/bin/sqlcmd -S localhost `
+    [string[]] $list = docker exec -it $container /opt/mssql-tools/bin/sqlcmd -S localhost `
                         -U SA -P "$pswd" `
                         -Q "RESTORE FILELISTONLY FROM DISK = '/var/opt/mssql/backup/$backupFile'"
     
-    $lengths = $list[1].Split(' ') | ForEach-Object { $_.Length }
+    [int[]] $lengths = $list[1].Split(' ') | ForEach-Object { $_.Length }
+    [int]   $start   = 0 
 
-    [int] $start = 0 
-
-    $columnNames = 0..($lengths.Length - 1) | ForEach-Object {
+    [string[]] $columnNames = 0..($lengths.Length - 1) | ForEach-Object {
         
         [int] $col = $_
         
@@ -249,7 +248,7 @@ function read-filelist {
         [string] $row   = $_
         [int]    $start = 0 
     
-        $values = 0..($lengths.Length - 1) | ForEach-Object {
+        [object[]] $values = 0..($lengths.Length - 1) | ForEach-Object {
          
             [int] $col = $_
     
@@ -270,7 +269,7 @@ function read-filelist {
                 Write-Host "row: $row, size: $size, start: $start, len: $len"
                 Write-Host "Failed on value '$value' column $col '$columnName': $_" -ForegroundColor Red
             }
-        } 
+        }
  
         [hashtable] $properties = @{ }
     
@@ -312,7 +311,7 @@ function convert-file-moves {
 function restore-backup {
 
     param (
-          [string] $image
+          [string] $container
         , [string] $pswd
         , [string] $title
         , [string] $db
@@ -322,13 +321,13 @@ function restore-backup {
     
     Write-Host "restoring $title ...`n"
     
-    docker exec -it $image /opt/mssql-tools/bin/sqlcmd `
+    docker exec -it $container /opt/mssql-tools/bin/sqlcmd `
         -S localhost -U SA -P "$pswd" `
         -Q "RESTORE DATABASE $db FROM DISK = '/var/opt/mssql/backup/$backupFile' WITH $moves"
     
     Write-Host ""
     
-    docker exec -it $image /opt/mssql-tools/bin/sqlcmd `
+    docker exec -it $container /opt/mssql-tools/bin/sqlcmd `
         -S localhost -U SA -P "$pswd" `
         -Q "SELECT Name FROM sys.Databases"
     
@@ -339,7 +338,7 @@ function restore-db {
 
     param 
     (
-          [string] $image
+          [string] $container
         , [string] $pswd
         , [string] $title
         , [string] $db
@@ -347,20 +346,20 @@ function restore-db {
         , [string] $dbImageUrl
     )
 
-    add-folder-to-container  $image "backup" "/var/opt/mssql/backup"
+    add-folder-to-container  $container "backup" "/var/opt/mssql/backup"
 
     get-backup $title $backupFile $dbImageUrl
     
-    copy-backup $image $title $backupFile
+    copy-backup $container $title $backupFile
     
-    [psobject[]] $files = read-filelist $image $pswd $backupFile
+    [psobject[]] $files = read-filelist $container $pswd $backupFile
     [string]     $moves = convert-file-moves $files
 
-    restore-backup $image $pswd $title $db $backupFile $moves
+    restore-backup $container $pswd $title $db $backupFile $moves
 
     Remove-Item $backupFile
 
-    docker exec ${image} rm -rf /var/opt/mssql/backup/$backupFile
+    docker exec ${container} rm -rf /var/opt/mssql/backup/$backupFile
 }
 
 function get-sa-password {
@@ -373,8 +372,8 @@ function get-sa-password {
         [System.Security.SecureString] $password2 = Read-Host -AsSecureString "enter secure sa password again"
         [string]                       $password2 = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($password2))
     
-        $noMatch = $password1 -cne $password2
-        $blank   = $password1 -eq ""
+        [bool] $noMatch = $password1 -cne $password2
+        [bool] $blank   = $password1 -eq ""
 
         if ($noMatch) {
             Write-Host "`nentered passwords" -NoNewline
@@ -396,20 +395,22 @@ function get-sa-password {
 function remove-existing-container {
 
     param (
-        [string] $image
+        [string] $container
     )
 
-    [string] $confirm = Read-Host "continuing will remove any existing image named '$image' ('y' to continue)"
+    [string] $confirm = Read-Host "continuing will remove any existing container named '$container' ('y' to continue)"
 
     if ($confirm -ne "y") {
         Write-Host ""
 
-        return
+        return $false
     }
 
-    docker container stop $image *> $null
-    docker container rm $image   *> $null
-    docker volume rm $image-data *> $null
+    docker container stop $container *> $null
+    docker container rm $container   *> $null
+    docker volume rm $container-data *> $null
+
+    return $true
 }
 
 function get-latest-image {
@@ -425,7 +426,7 @@ function get-latest-image {
 function add-sql-container {
 
     param (
-          [string] $image
+          [string] $container
         , [string] $pswd
         , [string] $sqlPort
     )
@@ -436,34 +437,34 @@ function add-sql-container {
     Write-Host "sql server 2017" -NoNewline -ForegroundColor DarkBlue
     Write-Host " container" -NoNewline -ForegroundColor Magenta
     Write-Host " '" -NoNewline
-    Write-Host "$image" -NoNewline -ForegroundColor DarkYellow
+    Write-Host "$container" -NoNewline -ForegroundColor DarkYellow
     Write-Host "' and a " -NoNewline
     Write-Host "data volume container" -NoNewline -ForegroundColor Magenta
     Write-Host " '" -NoNewline
-    Write-Host "$image-data" -NoNewline -ForegroundColor DarkYellow
+    Write-Host "$container-data" -NoNewline -ForegroundColor DarkYellow
     Write-Host "' ... " -NoNewline
 
-    [string] $capture = docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=$pswd" `
-                            --name "$image" -p ${sqlPort}:1433 `
-                            -v $image-data:/var/opt/mssql `
-                            -d mcr.microsoft.com/mssql/server:2017-latest
+    [string] $id = docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=$pswd" `
+                        --name "$container" -p ${sqlPort}:1433 `
+                        -v $container-data:/var/opt/mssql `
+                        -d mcr.microsoft.com/mssql/server:2017-latest
 
-    Write-Host "created $capture`n"
+    Write-Host "created $id`n"
 }
 
 function add-folder-to-container {
 
     param (
-          [string] $image
+          [string] $container
         , [string] $type
         , [string] $folder
     )
 
     Write-Host "create $type folder on '" -NoNewline
-    Write-Host "$image" -NoNewline -ForegroundColor DarkYellow
+    Write-Host "$container" -NoNewline -ForegroundColor DarkYellow
     Write-Host "' ...`n"
 
-    docker exec -it $image mkdir -p $folder
+    docker exec -it $container mkdir -p $folder
 }
 
 Export-ModuleMember -Function add-folder-to-container

@@ -1,6 +1,6 @@
 [
     {
-        "image": "sql-importers",
+        "container": "sql-importers",
         "title": "Wide World Importers",
         "name": "WideWorldImporters",
         "backup": "importers.bak",
@@ -8,7 +8,7 @@
         "portMapping": 1443
     },
     {
-        "image": "sql-adv-wrks",
+        "container": "sql-adv-wrks",
         "title": "Adventure Works",
         "name": "AdventureWorks",
         "backup": "adv-wrks.bak",
@@ -16,7 +16,7 @@
         "portMapping": 1453
     },
     {
-        "image": "sql-samples",
+        "container": "sql-samples",
         "title": "All Sample dBs",
         "portMapping": 1433,
         "include": [

@@ -2,22 +2,24 @@ Import-Module ".\build-sql.psm1" -Force
 
 $selected = select-database
 
-[string] $image = $selected.image
+[string] $container = $selected.container
 
-remove-existing-container $image
+if (!(remove-existing-container $container)) {
+    exit
+}
 
 [int]    $port  = get-port-mapping $selected.portMapping
 [string] $title = $selected.title
 
-Write-Host "`nbuilding sql server $image docker image mapped to port: $port for $title...`n"
+Write-Host "`nbuilding sql server $container docker container mapped to port: $port for $title...`n"
 
 [string] $password = get-sa-password
 
-add-sql-container $image $password $port
+add-sql-container $container $password $port
 
 if ($null -eq $selected.dbs)
 {
-    restore-db $image `
+    restore-db $container `
                $password `
                $title `
                $selected.name `
@@ -29,7 +31,7 @@ if ($null -eq $selected.dbs)
 
         [object] $db = $_
 
-        restore-db $image `
+        restore-db $container `
                    $password `
                    $title `
                    $db.name `
@@ -38,6 +40,6 @@ if ($null -eq $selected.dbs)
     }
 }
 
-docker container stop $image *> $null
+docker container stop $container *> $null
 
 Write-Host "`nComplete!`n" -ForegroundColor Green
