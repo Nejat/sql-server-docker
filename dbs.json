@@ -1,27 +1,42 @@
-[
-    {
-        "container": "sql-importers",
-        "title": "Wide World Importers",
-        "name": "WideWorldImporters",
-        "backup": "importers.bak",
-        "sourceUrl": "https://github.com/Microsoft/sql-server-samples/releases/download/wide-world-importers-v1.0/WideWorldImporters-Full.bak",
-        "portMapping": 1443
-    },
-    {
-        "container": "sql-adv-wrks",
-        "title": "Adventure Works",
-        "name": "AdventureWorks",
-        "backup": "adv-wrks.bak",
-        "sourceUrl": "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2017.bak",
-        "portMapping": 1453
-    },
-    {
-        "container": "sql-samples",
-        "title": "All Sample dBs",
-        "portMapping": 1433,
-        "include": [
-            "AdventureWorks",
-            "WideWorldImporters"
-        ]
-    }
-]
+{
+    "dbDefinitions": [
+        {
+            "container": "sql-importers",
+            "title": "Wide World Importers",
+            "name": "WideWorldImporters",
+            "backup": "importers.bak",
+            "sourceUrl": "https://github.com/Microsoft/sql-server-samples/releases/download/wide-world-importers-v1.0/WideWorldImporters-Full.bak",
+            "portMapping": 1443
+        },
+        {
+            "container": "sql-adv-wrks",
+            "title": "Adventure Works",
+            "name": "AdventureWorks",
+            "backup": "adv-wrks.bak",
+            "sourceUrl": "https://github.com/Microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks2017.bak",
+            "portMapping": 1453
+        },
+        {
+            "container": "sql-samples",
+            "title": "All Sample dBs",
+            "portMapping": 1433,
+            "include": [
+                "AdventureWorks",
+                "WideWorldImporters"
+            ]
+        },
+        {
+            "container": "sql-sandbox",
+            "title": "Sandbox No dBs",
+            "portMapping": 1423
+        }
+    ],
+    "editions" : [
+        "Evaluation",
+        "Developer",
+        "Express",
+        "Web",
+        "Standard",
+        "Enterprise"
+    ]
+}

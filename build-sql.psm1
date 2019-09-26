@@ -1,3 +1,5 @@
+[string] $image          = "2017-latest"
+[string] $defaultEdition = "Developer"
 function convert-value {
 
     param (
@@ -5,8 +7,7 @@ function convert-value {
         [string] $source
     )
 
-    if ($source -eq "null" -or $null -eq $source)
-    {
+    if ($source -eq "null" -or $null -eq $source) {
         return $null
     } else {
         [int] $result = [int]::MinValue
@@ -49,17 +50,16 @@ function convert-value {
     } 
 }
 
-
 function add-properties {
 
     param (
-          [psobject]  $source
+          [PSObject]  $source
         , [hashtable] $newProperties
     )
     
     [hashtable] $combined = @{}
 
-    $source.psobject.properties | ForEach-Object {
+    $source.PSObject.properties | ForEach-Object {
 
         $combined[$_.Name] = $_.Value
     }
@@ -68,7 +68,7 @@ function add-properties {
         $combined[$_] = $newProperties[$_]
     }
 
-    New-Object -TypeName psobject -Property $combined
+    New-Object -TypeName PSObject -Property $combined
 }
 
 function get-port-mapping {
@@ -121,11 +121,14 @@ function read-json {
 function select-database {
 
     param (
-        [string] $verb      = "Build"
-      , [bool]   $allOption = $false
+        [string] $verb          = "Build"
+      , [bool]   $allOption     = $false
+      , [bool]   $chooseEdition = $true
     )
 
-    [object[]] $dbs = read-json ".\dbs.json"
+    [object]   $config = read-json ".\dbs.json"
+    [object[]] $dbs    = $config.dbDefinitions
+    [object]   $choice
 
     do {
         Clear-Host
@@ -159,33 +162,89 @@ function select-database {
         }
 
         if ($allOption -and $command -eq 'a') {
-            return $dbs
+            $choice = $dbs
+            break
         }
     } while ($command -lt 1 -or $command -gt $choices)
 
-    [object] $selected = $dbs[$command - 1]
+    if ($null -eq $choice) {
 
-    if ($null -ne $selected.include) {
+        $choice = $dbs[$command - 1]
 
-        [object[]] $includedDbs = $dbs | ForEach-Object {
+        if ($null -ne $choice.include) {
 
-            [object] $db = $_
+            [object[]] $includedDbs = $dbs | ForEach-Object {
 
-            if ($null -ne $db.name -and $selected.include.Contains($db.name)) {
-                $db | Select-Object "name", "backup", "sourceUrl"
+                [object] $db = $_
+
+                if ($null -ne $db.name -and $choice.include.Contains($db.name)) {
+                    $db | Select-Object "name", "backup", "sourceUrl"
+                }
             }
-        }
 
-        $selected = add-properties $selected @{ dbs = $includedDbs }
+            $choice = add-properties $choice @{ dbs = $includedDbs }
+        }
     }
 
-    $selected
+    if ($chooseEdition -ne $true) {
+        return $choice
+    }
+
+    [string[]] $editions = $config.editions
+    [string]   $edition  = $null
+
+    if (![string]::IsNullOrWhiteSpace($choice.edition)) {
+        $defaultEdition = $choice.edition
+    }
+
+    do {
+        Clear-Host
+        Write-Host "===== Available Editions =====`n"
+
+        [int] $choices = 0
+
+        $editions | ForEach-Object {
+
+            $choices++
+
+            [string] $title = $_
+
+            Write-Host "$choices $title Edition"
+        }
+
+        Write-Host ""
+        Write-Host "Q: Press 'Q' to quit.`n" -ForegroundColor DarkGray
+
+        $edition = Read-Host "Choose an Edition (default $defaultEdition)"
+
+        if ($edition -eq [string]::Empty) {
+            break
+        }
+
+        Write-Host ""
+
+        if ($edition -eq "q") {
+            exit
+        }
+    } while ($edition -lt 1 -or $edition -gt $choices)
+
+    if ($edition -eq [string]::Empty) {
+        $edition = $defaultEdition
+    } else {
+        $edition = $editions[$edition]
+    }
+
+    [hashtable] $result = @{
+        db      = $choice
+        edition = $edition
+    }
+
+    New-Object -TypeName PSObject -Property $result
 }
 
 function get-backup {
 
-    param 
-    (
+    param (
           [string] $title
         , [string] $backupFile
         , [string] $dbImageUrl
@@ -218,8 +277,7 @@ function copy-backup {
 
 function read-filelist {
 
-    param 
-    (
+    param (
           [string] $container
         , [string] $pswd
         , [string] $backupFile
@@ -285,14 +343,14 @@ function read-filelist {
             }
         }
     
-        New-Object -TypeName psobject -Property $properties
+        New-Object -TypeName PSObject -Property $properties
     }
 }
 
 function convert-file-moves {
 
     param (
-        [psobject[]] $files
+        [PSObject[]] $files
     )
 
     $moves = $files | ForEach-Object {
@@ -336,8 +394,7 @@ function restore-backup {
 
 function restore-db {
 
-    param 
-    (
+    param (
           [string] $container
         , [string] $pswd
         , [string] $title
@@ -352,7 +409,7 @@ function restore-db {
     
     copy-backup $container $title $backupFile
     
-    [psobject[]] $files = read-filelist $container $pswd $backupFile
+    [PSObject[]] $files = read-filelist $container $pswd $backupFile
     [string]     $moves = convert-file-moves $files
 
     restore-backup $container $pswd $title $db $backupFile $moves
@@ -416,11 +473,11 @@ function remove-existing-container {
 function get-latest-image {
 
     Write-Host "pulling latest " -NoNewline
-    Write-Host "sql server 2017" -NoNewline -ForegroundColor DarkBlue
+    Write-Host "sql server $image" -NoNewline -ForegroundColor DarkBlue
     Write-Host " image" -NoNewline -ForegroundColor Magenta
     Write-Host "  ...`n"
     
-    docker pull mcr.microsoft.com/mssql/server:2017-latest
+    docker pull mcr.microsoft.com/mssql/server:$image
 }
 
 function add-sql-container {
@@ -429,12 +486,13 @@ function add-sql-container {
           [string] $container
         , [string] $pswd
         , [string] $sqlPort
+        , [string] $edition = "Developer"
     )
 
     get-latest-image
 
     Write-Host "`ncreating " -NoNewline
-    Write-Host "sql server 2017" -NoNewline -ForegroundColor DarkBlue
+    Write-Host "sql server $image" -NoNewline -ForegroundColor DarkBlue
     Write-Host " container" -NoNewline -ForegroundColor Magenta
     Write-Host " '" -NoNewline
     Write-Host "$container" -NoNewline -ForegroundColor DarkYellow
@@ -444,10 +502,10 @@ function add-sql-container {
     Write-Host "$container-data" -NoNewline -ForegroundColor DarkYellow
     Write-Host "' ... " -NoNewline
 
-    [string] $id = docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=$pswd" `
+    [string] $id = docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=$pswd" -e "MSSQL_PID=$edition" `
                         --name "$container" -p ${sqlPort}:1433 `
                         -v $container-data:/var/opt/mssql `
-                        -d mcr.microsoft.com/mssql/server:2017-latest
+                        -d mcr.microsoft.com/mssql/server:$image
 
     Write-Host "created $id`n"
 }
