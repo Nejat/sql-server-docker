@@ -1,5 +1,14 @@
-[string] $image          = "2017-latest"
-[string] $defaultEdition = "Developer"
+function read-json {
+
+    param (
+        [string] $sourceFile
+    )
+    
+    Get-Content $sourceFile | Out-String | ConvertFrom-Json
+}
+
+[object] $config = read-json ".\dbs.json"
+
 function convert-value {
 
     param (
@@ -109,15 +118,6 @@ function get-port-mapping {
     $port
 }
 
-function read-json {
-
-    param (
-        [string] $sourceFile
-    )
-    
-    Get-Content $sourceFile | Out-String | ConvertFrom-Json
-}
-
 function select-database {
 
     param (
@@ -126,8 +126,7 @@ function select-database {
       , [bool]   $chooseEdition = $true
     )
 
-    [object]   $config = read-json ".\dbs.json"
-    [object[]] $dbs    = $config.dbDefinitions
+    [object[]] $dbs = $config.dbDefinitions
     [object]   $choice
 
     do {
@@ -194,7 +193,7 @@ function select-database {
     [string]   $edition  = $null
 
     if (![string]::IsNullOrWhiteSpace($choice.edition)) {
-        $defaultEdition = $choice.edition
+        $config.defaultEdition = $choice.edition
     }
 
     do {
@@ -215,7 +214,7 @@ function select-database {
         Write-Host ""
         Write-Host "Q: Press 'Q' to quit.`n" -ForegroundColor DarkGray
 
-        $edition = Read-Host "Choose an Edition (default $defaultEdition)"
+        $edition = Read-Host "Choose an Edition (default $($config.defaultEdition))"
 
         if ($edition -eq [string]::Empty) {
             break
@@ -229,7 +228,7 @@ function select-database {
     } while ($edition -lt 1 -or $edition -gt $choices)
 
     if ($edition -eq [string]::Empty) {
-        $edition = $defaultEdition
+        $edition = $config.defaultEdition
     } else {
         $edition = $editions[$edition]
     }
@@ -473,10 +472,12 @@ function remove-existing-container {
 function get-latest-image {
 
     Write-Host "pulling latest " -NoNewline
-    Write-Host "sql server $image" -NoNewline -ForegroundColor DarkBlue
+    Write-Host "sql server $($config.image)" -NoNewline -ForegroundColor DarkBlue
     Write-Host " image" -NoNewline -ForegroundColor Magenta
     Write-Host "  ...`n"
     
+    [string] $image = $config.image
+
     docker pull mcr.microsoft.com/mssql/server:$image
 }
 
@@ -492,7 +493,7 @@ function add-sql-container {
     get-latest-image
 
     Write-Host "`ncreating " -NoNewline
-    Write-Host "sql server $image" -NoNewline -ForegroundColor DarkBlue
+    Write-Host "sql server $($config.image)" -NoNewline -ForegroundColor DarkBlue
     Write-Host " container" -NoNewline -ForegroundColor Magenta
     Write-Host " '" -NoNewline
     Write-Host "$container" -NoNewline -ForegroundColor DarkYellow
@@ -501,6 +502,8 @@ function add-sql-container {
     Write-Host " '" -NoNewline
     Write-Host "$container-data" -NoNewline -ForegroundColor DarkYellow
     Write-Host "' ... " -NoNewline
+
+    [string] $image = $config.image
 
     [string] $id = docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=$pswd" -e "MSSQL_PID=$edition" `
                         --name "$container" -p ${sqlPort}:1433 `
