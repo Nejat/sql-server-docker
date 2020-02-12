@@ -10,10 +10,10 @@ $selected = select-database "Delete" $true $false $false | Select-Object -Skip 0
 if ($selected -is [array]) {
 
     $selected | ForEach-Object {
-        $null = remove-existing-container $_.container
+        $null = remove-existingContainer $_.container
     }
 } else {
-    $null = remove-existing-container $selected.container
+    $null = remove-existingContainer $selected.container
 }
 
 Write-Host ""

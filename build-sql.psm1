@@ -87,7 +87,7 @@ function add-properties {
     New-Object -TypeName PSObject -Property $combined
 }
 
-function get-port-mapping {
+function get-portMapping {
 
     param (
         [int] $default = 1433
@@ -430,7 +430,7 @@ function restore-db {
         , [string] $dbImageUrl
     )
 
-    add-folder-to-container  $container "backup" "/var/opt/mssql/backup"
+    add-folderToContainer  $container "backup" "/var/opt/mssql/backup"
 
     get-backup $title $backupFile $dbImageUrl
     
@@ -446,7 +446,7 @@ function restore-db {
     docker exec ${container} rm -rf /var/opt/mssql/backup/$backupFile
 }
 
-function get-sa-password {
+function get-saPassword {
     
     Write-Host "`nsa password must pass sql server secure password rules`n" -ForegroundColor DarkCyan
 
@@ -476,7 +476,7 @@ function get-sa-password {
     $password1
 }
 
-function remove-existing-container {
+function remove-existingContainer {
 
     param (
         [string] $container
@@ -511,7 +511,7 @@ function get-latest-image {
     docker pull mcr.microsoft.com/mssql/server:$image
 }
 
-function add-sql-container {
+function add-sqlContainer {
 
     param (
           [string] $container
@@ -542,7 +542,7 @@ function add-sql-container {
     Write-Host "created $id`n"
 }
 
-function add-folder-to-container {
+function add-folderToContainer {
 
     param (
           [string] $container
@@ -557,12 +557,12 @@ function add-folder-to-container {
     docker exec -it $container mkdir -p $folder
 }
 
-Export-ModuleMember -Function add-folder-to-container
-Export-ModuleMember -Function add-sql-container
-Export-ModuleMember -Function get-port-mapping
-Export-ModuleMember -Function get-sa-password
+Export-ModuleMember -Function add-folderToContainer
+Export-ModuleMember -Function add-sqlContainer
+Export-ModuleMember -Function get-portMapping
+Export-ModuleMember -Function get-saPassword
 Export-ModuleMember -Function read-json
-Export-ModuleMember -Function remove-existing-container
+Export-ModuleMember -Function remove-existingContainer
 Export-ModuleMember -Function restore-db
 Export-ModuleMember -Function select-database
 Export-ModuleMember -Function test-docker

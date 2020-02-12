@@ -10,18 +10,18 @@ if (!(test-docker)) {
 [string] $container = $db.container
 [string] $image     = $selected.db.image
 
-if (!(remove-existing-container $container)) {
+if (!(remove-existingContainer $container)) {
     exit
 }
 
-[int]    $port  = get-port-mapping $db.portMapping
+[int]    $port  = get-portMapping $db.portMapping
 [string] $title = $db.title
 
 Write-Host "`nbuilding sql server $container docker container mapped to port: $port for $title using $image ...`n"
 
-[string] $password = get-sa-password
+[string] $password = get-saPassword
 
-add-sql-container $container $image $password $port $selected.edition
+add-sqlContainer $container $image $password $port $selected.edition
 
 if (
         ![string]::IsNullOrWhiteSpace($db.sourceUrl) `
