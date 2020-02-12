@@ -31,7 +31,10 @@
             "portMapping": 1423
         }
     ],
-    "image": "2017-latest",
+    "images": {
+        "2017": "2017-latest",
+        "2019": "2019-latest"
+    },
     "defaultEdition": "Developer",
     "editions" : [
         "Evaluation",

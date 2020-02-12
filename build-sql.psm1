@@ -124,10 +124,12 @@ function select-database {
         [string] $verb          = "Build"
       , [bool]   $allOption     = $false
       , [bool]   $chooseEdition = $true
+      , [bool]   $chooseVersion = $true
     )
 
-    [object[]] $dbs = $config.dbDefinitions
-    [object]   $choice
+    [object[]] $dbs    = $config.dbDefinitions
+    [object]   $choice = $null
+    [string[]] $images = $config.images.PSObject.Properties | ForEach-Object { $_.Name }
 
     do {
         Clear-Host
@@ -137,11 +139,21 @@ function select-database {
 
         $dbs | ForEach-Object {
 
-            $choices++
-
             [string] $title = $_.title
 
-            Write-Host "$choices $verb $title Image"
+            if ($chooseVersion) {
+                $images | ForEach-Object {
+
+                    $choices++
+
+                    Write-Host "$choices $verb $title $($_) SQL Image"
+                }
+            } else {
+
+                $choices++
+
+                Write-Host "$choices $verb $title SQL Image"
+            }
         }
 
         if ($allOption) {
@@ -152,6 +164,8 @@ function select-database {
 
         Write-Host "Q: Press 'Q' to quit.`n" -ForegroundColor DarkGray
 
+        # $KeyPress = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+
         $command = Read-Host "Choose a command"
 
         Write-Host ""
@@ -160,7 +174,7 @@ function select-database {
             exit
         }
 
-        if ($allOption -and $command -eq 'a') {
+        if ($allOption -and $command -eq "a") {
             $choice = $dbs
             break
         }
@@ -168,7 +182,9 @@ function select-database {
 
     if ($null -eq $choice) {
 
-        $choice = $dbs[$command - 1]
+        [int] $imagesNum = if ($chooseVersion) { $images.Length  } else { 1 }
+
+        $choice = $dbs[[Math]::Ceiling($command / $imagesNum) - 1]
 
         if ($null -ne $choice.include) {
 
@@ -183,62 +199,67 @@ function select-database {
 
             $choice = add-properties $choice @{ dbs = $includedDbs }
         }
+
+        if ($chooseVersion) {
+            $choice = add-properties $choice @{ image = $config.images.($images[($command - 1) % $imagesNum]) }
+        }
     }
 
     if ($chooseEdition -ne $true) {
         return $choice
-    }
+    } else {
 
-    [string[]] $editions = $config.editions
-    [string]   $edition  = $null
+        [string[]] $editions = $config.editions
+        [string]   $edition  = $null
 
-    if (![string]::IsNullOrWhiteSpace($choice.edition)) {
-        $config.defaultEdition = $choice.edition
-    }
-
-    do {
-        Clear-Host
-        Write-Host "===== Available Editions =====`n"
-
-        [int] $choices = 0
-
-        $editions | ForEach-Object {
-
-            $choices++
-
-            [string] $title = $_
-
-            Write-Host "$choices $title Edition"
+        if (![string]::IsNullOrWhiteSpace($choice.edition)) {
+            $config.defaultEdition = $choice.edition
         }
 
-        Write-Host ""
-        Write-Host "Q: Press 'Q' to quit.`n" -ForegroundColor DarkGray
+        do {
+            Clear-Host
+            Write-Host "===== Available Editions =====`n"
 
-        $edition = Read-Host "Choose an Edition (default $($config.defaultEdition))"
+            [int] $choices = 0
+
+            $editions | ForEach-Object {
+
+                $choices++
+
+                [string] $title = $_
+
+                Write-Host "$choices $title Edition"
+            }
+
+            Write-Host ""
+            Write-Host "Q: Press 'Q' to quit.`n" -ForegroundColor DarkGray
+
+            $edition = Read-Host "Choose an Edition (default $($config.defaultEdition))"
+
+            if ($edition -eq [string]::Empty) {
+                break
+            }
+
+            Write-Host ""
+
+            if ($edition -eq "q") {
+                exit
+            }
+        } while ($edition -lt 1 -or $edition -gt $choices)
 
         if ($edition -eq [string]::Empty) {
-            break
+            $edition = $config.defaultEdition
+        } else {
+            $edition = $editions[$edition]
         }
 
-        Write-Host ""
-
-        if ($edition -eq "q") {
-            exit
+        [hashtable] $result = @{
+            db      = $choice
+            edition = $edition
         }
-    } while ($edition -lt 1 -or $edition -gt $choices)
 
-    if ($edition -eq [string]::Empty) {
-        $edition = $config.defaultEdition
-    } else {
-        $edition = $editions[$edition]
+        New-Object -TypeName PSObject -Property $result
     }
-
-    [hashtable] $result = @{
-        db      = $choice
-        edition = $edition
-    }
-
-    New-Object -TypeName PSObject -Property $result
 }
 
 function get-backup {
@@ -286,7 +307,7 @@ function read-filelist {
                         -U SA -P "$pswd" `
                         -Q "RESTORE FILELISTONLY FROM DISK = '/var/opt/mssql/backup/$backupFile'"
     
-    [int[]] $lengths = $list[1].Split(' ') | ForEach-Object { $_.Length }
+    [int[]] $lengths = $list[1].Split(" ") | ForEach-Object { $_.Length }
     [int]   $start   = 0 
 
     [string[]] $columnNames = 0..($lengths.Length - 1) | ForEach-Object {
@@ -471,12 +492,14 @@ function remove-existing-container {
 
 function get-latest-image {
 
+    param (
+        [string] $image
+    )
+
     Write-Host "pulling latest " -NoNewline
-    Write-Host "sql server $($config.image)" -NoNewline -ForegroundColor DarkBlue
+    Write-Host "sql server $image" -NoNewline -ForegroundColor DarkBlue
     Write-Host " image" -NoNewline -ForegroundColor Magenta
     Write-Host "  ...`n"
-    
-    [string] $image = $config.image
 
     docker pull mcr.microsoft.com/mssql/server:$image
 }
@@ -485,12 +508,13 @@ function add-sql-container {
 
     param (
           [string] $container
+        , [string] $image
         , [string] $pswd
         , [string] $sqlPort
         , [string] $edition = "Developer"
     )
 
-    get-latest-image
+    get-latest-image $image
 
     Write-Host "`ncreating " -NoNewline
     Write-Host "sql server $($config.image)" -NoNewline -ForegroundColor DarkBlue
@@ -502,8 +526,6 @@ function add-sql-container {
     Write-Host " '" -NoNewline
     Write-Host "$container-data" -NoNewline -ForegroundColor DarkYellow
     Write-Host "' ... " -NoNewline
-
-    [string] $image = $config.image
 
     [string] $id = docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=$pswd" -e "MSSQL_PID=$edition" `
                         --name "$container" -p ${sqlPort}:1433 `

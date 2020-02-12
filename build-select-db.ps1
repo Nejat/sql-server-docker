@@ -3,6 +3,7 @@ Import-Module ".\build-sql.psm1" -Force
 [object] $selected  = select-database | Select-Object -Last 1
 [object] $db        = $selected.db
 [string] $container = $db.container
+[string] $image     = $selected.db.image
 
 if (!(remove-existing-container $container)) {
     exit
@@ -11,15 +12,16 @@ if (!(remove-existing-container $container)) {
 [int]    $port  = get-port-mapping $db.portMapping
 [string] $title = $db.title
 
-Write-Host "`nbuilding sql server $container docker container mapped to port: $port for $title...`n"
+Write-Host "`nbuilding sql server $container docker container mapped to port: $port for $title using $image ...`n"
 
 [string] $password = get-sa-password
 
-add-sql-container $container $password $port $selected.edition
+add-sql-container $container $image $password $port $selected.edition
 
 if (
         ![string]::IsNullOrWhiteSpace($db.sourceUrl) `
    -and ![string]::IsNullOrWhiteSpace($db.backup) `
+   -or  $null -ne $db.dbs `
    ) {
     if ($null -eq $db.dbs) {
         restore-db $container `
