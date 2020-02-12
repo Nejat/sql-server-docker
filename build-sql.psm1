@@ -7,6 +7,13 @@ function read-json {
     Get-Content $sourceFile | Out-String | ConvertFrom-Json
 }
 
+function test-docker {
+
+    [object[]] $docker =  Get-Process | Select-String -Pattern "docker"
+
+    return $docker.Length -gt 1
+}
+
 [object] $config = read-json ".\dbs.json"
 
 function convert-value {
@@ -558,3 +565,4 @@ Export-ModuleMember -Function read-json
 Export-ModuleMember -Function remove-existing-container
 Export-ModuleMember -Function restore-db
 Export-ModuleMember -Function select-database
+Export-ModuleMember -Function test-docker

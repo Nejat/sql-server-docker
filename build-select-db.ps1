@@ -1,5 +1,10 @@
 Import-Module ".\build-sql.psm1" -Force
 
+if (!(test-docker)) {
+    Write-Error "Docker is not running"
+    exit
+}
+
 [object] $selected  = select-database | Select-Object -Last 1
 [object] $db        = $selected.db
 [string] $container = $db.container
