@@ -257,7 +257,7 @@ function select-database {
         if ($edition -eq [string]::Empty) {
             $edition = $config.defaultEdition
         } else {
-            $edition = $editions[$edition]
+            $edition = $editions[$edition - 1]
         }
 
         [hashtable] $result = @{
