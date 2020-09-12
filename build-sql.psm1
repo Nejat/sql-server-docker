@@ -508,7 +508,18 @@ function get-latest-image {
     Write-Host " image" -NoNewline -ForegroundColor Magenta
     Write-Host "  ...`n"
 
-    docker pull mcr.microsoft.com/mssql/server:$image
+    docker pull mcr.microsoft.com/mssql/server:$image | Out-Null
+}
+
+function wait-until {
+    param (
+        [string] $id,
+        [string] $pattern
+    )
+    
+    do {
+        [string] $tail = docker logs $id --tail 1
+    } until ($tail -match $pattern)
 }
 
 function add-sqlContainer {
@@ -521,7 +532,7 @@ function add-sqlContainer {
         , [string] $edition = "Developer"
     )
 
-    get-latest-image $image
+    get-latest-image $image | Out-Null
 
     Write-Host "`ncreating " -NoNewline
     Write-Host "sql server $($config.image)" -NoNewline -ForegroundColor DarkBlue
@@ -539,7 +550,11 @@ function add-sqlContainer {
                         -v $container-data:/var/opt/mssql `
                         -d mcr.microsoft.com/mssql/server:$image
 
+    wait-until $id "The tempdb database has \d+ data file\(s\)\.$"
+    
     Write-Host "created $id`n"
+
+    $id
 }
 
 function add-folderToContainer {
@@ -566,3 +581,4 @@ Export-ModuleMember -Function remove-existingContainer
 Export-ModuleMember -Function restore-db
 Export-ModuleMember -Function select-database
 Export-ModuleMember -Function test-docker
+Export-ModuleMember -Function wait-until

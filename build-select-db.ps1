@@ -20,8 +20,7 @@ if (!(remove-existingContainer $container)) {
 Write-Host "`nbuilding sql server $container docker container mapped to port: $port for $title using $image ...`n"
 
 [string] $password = get-saPassword
-
-add-sqlContainer $container $image $password $port $selected.edition
+[string] $id = add-sqlContainer $container $image $password $port $selected.edition
 
 if (
         ![string]::IsNullOrWhiteSpace($db.sourceUrl) `
@@ -59,4 +58,6 @@ Write-Host ""
 
 docker container ls -a
 
-Write-Host "`nComplete!`n" -ForegroundColor Green
+wait-until $id "Controller finished waiting for completion of processing of the upgrade segment"
+
+Write-Host "`nComplete, ready to use!`n" -ForegroundColor Green
